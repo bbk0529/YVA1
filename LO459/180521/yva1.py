@@ -226,8 +226,8 @@ cnx.commit()
 cnx.close()
 
 #To save excel file 
-#writer=pd.ExcelWriter(time.strftime("%Y%m%d")+'YVA1.xlsx')
-#SUM.to_excel(writer,'SUM')
-#DF.to_excel(writer,'DF')
-#PARTIAL.to_excel(writer,'PARTIAL')
-#writer.save()
+writer=pd.ExcelWriter(time.strftime("%Y%m%d")+'YVA1.xlsx')
+SUM.to_excel(writer,'SUM')
+DF.to_excel(writer,'DF')
+PARTIAL.to_excel(writer,'PARTIAL')
+writer.save()
