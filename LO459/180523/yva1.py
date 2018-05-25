@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plot
 import mysql.connector
 import time
+
 STATUS={
             "PLAF" : "Plan order, created automatically after the order has been created", 
 			"ERO" : "Not Planned, not started. May have missing parts", 
@@ -190,14 +191,24 @@ def mergeDF (filelist) :
 # RUN FROM HERE
 #
 ##########################    
-filelist=[]
-f=open("YVA1list.txt","r", encoding="UTF-8")
-for line in f :
-    filelist.append(line.splitlines()[0])
+#filelist=[]
+#f=open("YVA1list.txt","r", encoding="UTF-8")
+#for line in f :
+#    filelist.append(line.splitlines()[0])
+
+##################################################
+# Filelist read from the current directory
+##################################################
+from os import listdir
+from os.path import isfile, join
+mypath="."
+filelist = [f for f in listdir(mypath) if f.find("2018") == 0]
+print(filelist)
 
 DF,SUM,PARTIAL = mergeDF(filelist)
-
+##################################################
 #MySQL Database 
+##################################################
 f=open('mysql.key').readline().split()
 
 try :     
@@ -224,6 +235,9 @@ for k,v in SUM.iterrows():
         
 cnx.commit()
 cnx.close()
+##################################################
+#Excel File output
+##################################################
 
 #To save excel file 
 writer=pd.ExcelWriter(time.strftime("%Y%m%d")+'YVA1.xlsx')

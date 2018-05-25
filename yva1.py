@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plot
 import mysql.connector
 import time
+
 STATUS={
             "PLAF" : "Plan order, created automatically after the order has been created", 
 			"ERO" : "Not Planned, not started. May have missing parts", 
@@ -54,8 +55,16 @@ def itemsParsing(items, so, po) :
 
     #For each items 
     start=1
+    
+    #skip the info rows
     if str(items).find("Ship-to party ")>0 :
-        start=2        
+        start= start +1        
+        print("skipped ship-to-party", start)
+    
+    #skip the info rows
+    if str(items).find("|internal notice")>0 :
+        start= start +1
+        print("skipped internal notice", start)
     
     for row in range(start,len(items)) :
         stored=None
@@ -69,6 +78,7 @@ def itemsParsing(items, so, po) :
         #print(items[row])
         
         #so=items[row][2][26:36]
+        print(items[row][0][1:5].strip())
         no=int(items[row][0][1:5].strip())
         partno=items[row][0][14:22].strip()
         config=items[row][-1][36:80].strip() if items[row][-1][36:80].count("-")>3 else items[1][0][23:62].strip()
@@ -190,14 +200,24 @@ def mergeDF (filelist) :
 # RUN FROM HERE
 #
 ##########################    
-filelist=[]
-f=open("YVA1list.txt","r", encoding="UTF-8")
-for line in f :
-    filelist.append(line.splitlines()[0])
+#filelist=[]
+#f=open("YVA1list.txt","r", encoding="UTF-8")
+#for line in f :
+#    filelist.append(line.splitlines()[0])
+
+##################################################
+# Filelist read from the current directory
+##################################################
+from os import listdir
+from os.path import isfile, join
+mypath="."
+filelist = [f for f in listdir(mypath) if f.find("2018") == 0]
+print(filelist)
 
 DF,SUM,PARTIAL = mergeDF(filelist)
-
+##################################################
 #MySQL Database 
+##################################################
 f=open('mysql.key').readline().split()
 
 try :     
@@ -224,10 +244,13 @@ for k,v in SUM.iterrows():
         
 cnx.commit()
 cnx.close()
+##################################################
+#Excel File output
+##################################################
 
 #To save excel file 
-#writer=pd.ExcelWriter(time.strftime("%Y%m%d")+'YVA1.xlsx')
-#SUM.to_excel(writer,'SUM')
-#DF.to_excel(writer,'DF')
-#PARTIAL.to_excel(writer,'PARTIAL')
-#writer.save()
+writer=pd.ExcelWriter(time.strftime("%Y%m%d")+'YVA1.xlsx')
+SUM.to_excel(writer,'SUM')
+DF.to_excel(writer,'DF')
+PARTIAL.to_excel(writer,'PARTIAL')
+writer.save()
