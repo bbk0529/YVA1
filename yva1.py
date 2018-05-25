@@ -211,7 +211,7 @@ def mergeDF (filelist) :
 from os import listdir
 from os.path import isfile, join
 mypath="."
-filelist = [f for f in listdir(mypath) if f.find("2018") == 0]
+filelist = [f for f in listdir(mypath) if f.find("2018") == 0 and len(f)==10]
 print(filelist)
 
 DF,SUM,PARTIAL = mergeDF(filelist)
