@@ -6,17 +6,35 @@ import mysql.connector
 import time
 
 STATUS={
-            "PLAF" : "Plan order, created automatically after the order has been created", 
-			"ERO" : "Not Planned, not started. May have missing parts", 
-            "FREI" : "No missing part, production order free", 
-            "TRÜC": "1 level of a 2 level produciton has been finished", 
-            "RÜCK" : "Production finished, on the way to CSC", 
-            "GLFT" : "Delivered to CSC",
-            "LOE" : "P Order Deleted/Finished",
-            "TGLI" : "Partical delivery, the production order has been splitted and partical delivered",
-            "" : "UNKNOWN"
+            "PLAF" : "", 
+			"ERO" : "", 
+            "FREI" : "To be produced soon", 
+            "TRÜC": "In Production", 
+            "RÜCK" : "Production finished", 
+            "GLFT" : "Production finished",
+            "BEST" : "Oursourcing",
+            "LOE" : "Deleted or Finished",
+            "TGLI" : "Partial delivery",
+            "PACK" : "Production finished",
+            "" : ""
     }
 
+# STATUS={
+            # "PLAF" : "Plan order, created automatically after the order has been created", 
+			# "ERO" : "Not Planned, not started. May have missing parts", 
+            # "FREI" : "No missing part, production order free", 
+            # "TRÜC": "1 level of a 2 level produciton has been finished", 
+            # "RÜCK" : "Production finished, on the way to CSC", 
+            # "GLFT" : "Delivered to CSC",
+            # "BEST" : "Parts are purchased at our supplier",
+            # "LOE" : "P Order Deleted/Finished",
+            # "TGLI" : "Partical delivery, the production order has been splitted and partical delivered",
+            # "PACK" : "Packed",
+            # "" : "UNKNOWN"
+    # }
+
+
+#Extract only data within confined boxes    
 def fileRead(filename) :
     items=[]
     item=[]
@@ -30,6 +48,12 @@ def fileRead(filename) :
         line=file.readline()
         so=line.split()[5]
         po=line.split()[8]
+        
+        podate=file.readline().split()[6]                
+        shipcondition=file.readline()[64:84].strip()
+        print(podate, shipcondition)
+        
+        
         while line.find('*****')<0:
             line=file.readline()
             
@@ -46,37 +70,67 @@ def fileRead(filename) :
                 item=[]
                 toggle=False
     items.append(item)    
-    return items, so, po
+    result = [items,so,po,podate,shipcondition]
+    return items, so, po, podate, shipcondition
 	
-def itemsParsing(items, so, po) :
+def itemsParsing(result) :
+    
+    items = result[0] 
+    so = result[1] 
+    po = result[2] 
+    podate = result[3]
+    shipcondition =result[4]
     
     TotalList=[]
     SumList=[]
     #For each items 
     start=1    
-    #skip the info rows
-    if str(items).find("Ship-to party ")>0 :
-        start= start +1        
-        print("skipped ship-to-party", start)
     
-    #skip the info rows
-    if str(items).find("|internal notice")>0 :
-        start= start +1
-        print("skipped internal notice", start)
+    # #skip the info rows
+    # if str(items).find("Ship-to party ")>0 :
+        # start= start +1        
+        # print("skipped ship-to-party", start)
     
-    for row in range(start,len(items)) :
+    # #skip the info rows
+    # if str(items).find("|internal notice")>0 :
+        # start= start +1
+        # print("skipped internal notice", start)
+    
+    # #skip the info rows
+    # if str(items).find("|general header text")>0 :
+        # start= start +1
+        # print("general header text", start)  
+    
+    # #skip the shipment notice
+    # if str(items).find("|Shipment note")>0 :
+        # start= start +1
+        # print("Shipment note", start)      
+        
+        
+    
+    
+    for row in range(0,len(items)) :
+        if str(items[row]).find("|Item / M.|RR|MATERIAL|Description                             |Bi.bl|Rea|Cat In.no.+Status    |PS|            |Di|  |  |S |L |T   |")>0 :
+            start=row+1    
+    print("start from this number :", start)    
+    for row in range(start,len(items)) :          
+    
+        print(row)
         stored=None
         n=len(items[row])
         
         if str(items[row]).find("stored in")>0 : 
             n=n-1
             stored=items[row][-2][76:91].strip()
-        
-        status=items[row][0][91:95].strip()                   
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!아래 내용 나중에 확인해볼 것 왜 추가했찌? 
+        #if status!="PACK" : status=items[row][0][91:95].strip() 
+        status=items[row][0][91:95].strip()         
         no=int(items[row][0][1:5].strip())
         partno=items[row][0][14:22].strip()
-        config=items[row][-1][36:80].strip() if items[row][-1][36:80].count("-")>3 else items[1][0][23:62].strip()
         
+        config=items[row][-1][36:80].strip() if items[row][-1][36:80].count("-")>=3 else items[row][0][23:62].strip()
+        print(partno, config)   
+               
         #Each records of each Items Parsing
         T1=0;T2=0;T3=0;T4=0
         if str(items[row]).find("Ident")>0 : n-=1
@@ -90,12 +144,15 @@ def itemsParsing(items, so, po) :
         d4=None
         eta=None
         reference=''
+        #status=''
+        
         for i in range(2,n) :
             t=items[row][i]
 
             if t[11:19].find("/")>0 :d1=t[11:19]              
             if t[35:46].find("/")>0 : d2=t[38:46]; eta=d2.replace("18/","2018/")
-            if t[85:93].find("/")>0 and t[85:93].find("00/00/00")==-1: d3=t[85:93]                            
+            if t[85:93].find("/")>0 and t[85:93].find("00/00/00")==-1: d3=t[85:93]
+            if t[85:93].find("00/00/00")>=0 : status="PACK"                            
             if t[116:124].find("/")>0 : d4=t[116:124]
                 
 				
@@ -120,11 +177,13 @@ def itemsParsing(items, so, po) :
             if t[-31:-23].strip() !='' :
                 reference=t[-31:-23].strip()
             
-            print(soidx, reference)
+            #print(soidx, reference)
             
 
             #A single row created here
-            TotalList.append([so, soidx.strip(), po, poidx.strip(), (so+ str(no)).strip(), d1,t1,d2,t2,d3,t3,d4,t4,reference])
+            singleRow=[so, soidx.strip(), po, poidx.strip(), (so+ str(no)).strip(), d1,t1,d2,t2,d3,t3,d4,t4,reference]
+            TotalList.append(singleRow)
+            print(singleRow)
 
         delta=T1-T4
         
@@ -137,7 +196,7 @@ def itemsParsing(items, so, po) :
             etd=None
 
         partial="Partial" if delta>0 and T1>delta else '' #Partial Delivery Case, to be saved in the tab "Partial"
-        SumList.append([so, soidx.strip(), po, poidx.strip(), (so+ str(no)).strip(), partno, config, T1,T2,T3,T4, delta, stored, etd, eta, status,REMARK + " " + reference, reference, partial])
+        SumList.append([so, soidx.strip(), str(po)+str(poidx.strip()), po, poidx.strip(), podate, shipcondition, (so+ str(no)).strip(), partno, config, T1,T2,T3,T4, delta, stored, etd, eta, status,REMARK + " " + reference, reference, partial])
 
     return TotalList, SumList 
 	
@@ -152,14 +211,14 @@ def detailDF (conDF, list) :
 
 def mergeDF (filelist) :
     colDF=["so", "soidx", "po", "poidx", "idx", "d1", "t1", "d2", "t2", "d3","t3", "d4", "t4", "reference"]
-    colSUM=["so", "soidx", "po","poidx", "idx", "partno", "config","T1","T2","T3","T4","△","Stored", "ETD", "ETA", "Status", "Remark", "Ref#", "Partial"]
+    colSUM=["so", "soidx", "popk", "po","poidx",  "podate", "shipcondition", "idx", "partno", "config","T1","T2","T3","T4","△","Stored", "ETD", "ETA", "Status", "Remark", "Ref#", "Partial"]
     conDF=pd.DataFrame([], columns=colDF)
     conSUM=pd.DataFrame([], columns=colSUM)
 
     for file in filelist :
         print (file, "read to be parsed.... ")
-        items, so, po =fileRead(file)
-        TotalList, SumList = itemsParsing(items, so, po)        
+        result =fileRead(file)
+        TotalList, SumList = itemsParsing(result)        
         conDF=pd.concat([conDF,pd.DataFrame(TotalList, columns=colDF)])
         conSUM=pd.concat([conSUM,pd.DataFrame(SumList, columns=colSUM)])
     
@@ -211,6 +270,15 @@ def ticketsToDataFrame(filelist) :
     
 ticketHeader=["so","pos","no","type","issuedDate","IssuedTime","Initiator","responseDate","responseTime"]   
 
+
+import sys
+
+if __name__ == "__main__":
+    mypath = sys.argv[1]
+    
+    print(mypath)
+
+
 ##########################
 #
 # RUN FROM HERE
@@ -226,8 +294,8 @@ ticketHeader=["so","pos","no","type","issuedDate","IssuedTime","Initiator","resp
 ##################################################
 from os import listdir
 from os.path import isfile, join
-mypath="."
-filelist = [f for f in listdir(mypath) if f.find("2018") == 0 and len(f)==10]
+#mypath="."
+filelist = [mypath + "\\" + f for f in listdir(mypath) if len(f)==10]
 print(filelist)
 
 DF,SUM,PARTIAL = mergeDF(filelist)
@@ -267,7 +335,7 @@ conTickets=ticketsToDataFrame(filelist)
 ##################################################
 
 #To save excel file 
-writer=pd.ExcelWriter(time.strftime("%Y%m%d%H%M%S")+'YVA1.xlsx')
+writer=pd.ExcelWriter(mypath + "\\" + time.strftime("%Y%m%d%H%M%S")+'YVA1.xlsx')
 SUM.to_excel(writer,'SUM')
 DF.to_excel(writer,'DF')
 PARTIAL.to_excel(writer,'PARTIAL')
