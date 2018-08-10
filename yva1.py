@@ -51,7 +51,7 @@ def fileRead(filename) :
         
         podate=file.readline().split()[6]                
         shipcondition=file.readline()[64:84].strip()
-        print(podate, shipcondition)
+        #print(podate, shipcondition)
         
         
         while line.find('*****')<0:
@@ -85,57 +85,43 @@ def itemsParsing(result) :
     SumList=[]
     #For each items 
     start=1    
-    
-    # #skip the info rows
-    # if str(items).find("Ship-to party ")>0 :
-        # start= start +1        
-        # print("skipped ship-to-party", start)
-    
-    # #skip the info rows
-    # if str(items).find("|internal notice")>0 :
-        # start= start +1
-        # print("skipped internal notice", start)
-    
-    # #skip the info rows
-    # if str(items).find("|general header text")>0 :
-        # start= start +1
-        # print("general header text", start)  
-    
-    # #skip the shipment notice
-    # if str(items).find("|Shipment note")>0 :
-        # start= start +1
-        # print("Shipment note", start)      
-        
-        
-    
-    
+
     for row in range(0,len(items)) :
         if str(items[row]).find("|Item / M.|RR|MATERIAL|Description                             |Bi.bl|Rea|Cat In.no.+Status    |PS|            |Di|  |  |S |L |T   |")>0 :
-            start=row+1    
-    print("start from this number :", start)    
+            start=row+1 
+            break      
+    #print("start from this number :", start)    
     for row in range(start,len(items)) :          
     
-        print(row)
+        #print(row)
         stored=None
+        cancelled=False
+        blocked=False
+                
         n=len(items[row])
         
         if str(items[row]).find("stored in")>0 : 
             n=n-1
             stored=items[row][-2][76:91].strip()
-        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!아래 내용 나중에 확인해볼 것 왜 추가했찌? 
-        #if status!="PACK" : status=items[row][0][91:95].strip() 
+                
         status=items[row][0][91:95].strip()         
         no=int(items[row][0][1:5].strip())
         partno=items[row][0][14:22].strip()
         
         config=items[row][-1][36:80].strip() if items[row][-1][36:80].count("-")>=3 else items[row][0][23:62].strip()
-        print(partno, config)   
+        #print(partno, config)   
                
         #Each records of each Items Parsing
         T1=0;T2=0;T3=0;T4=0
+        
         if str(items[row]).find("Ident")>0 : n-=1
         
         soidx=items[row][0].split("|")[1]
+        if len(items[row][0].split("|")[2].strip())>1 : 
+            cancelled = True 
+       
+        
+        
         poidx=items[row][1].split("|")[1]
         
         d1=None
@@ -144,13 +130,18 @@ def itemsParsing(result) :
         d4=None
         eta=None
         reference=''
-        #status=''
+        
         
         for i in range(2,n) :
-            t=items[row][i]
-
+            t=items[row][i] 
+            #t is a line data as below:
+            #|         |18/06/30     6|                            ZR    |                                      |                               |
+            #|         |              |            unconfir     6        |                                      |                               |
+                        
+            if t.find("ZR")>0 : 
+                blocked=True                
             if t[11:19].find("/")>0 :d1=t[11:19]              
-            if t[35:46].find("/")>0 : d2=t[38:46]; eta=d2.replace("18/","2018/")
+            if t[35:    46].find("/")>0 : d2=t[38:46]; eta=d2.replace("18/","2018/")
             if t[85:93].find("/")>0 and t[85:93].find("00/00/00")==-1: d3=t[85:93]
             if t[85:93].find("00/00/00")>=0 : status="PACK"                            
             if t[116:124].find("/")>0 : d4=t[116:124]
@@ -176,14 +167,12 @@ def itemsParsing(result) :
             #Invoice#
             if t[-31:-23].strip() !='' :
                 reference=t[-31:-23].strip()
-            
-            #print(soidx, reference)
-            
+                                   
 
             #A single row created here
             singleRow=[so, soidx.strip(), po, poidx.strip(), (so+ str(no)).strip(), d1,t1,d2,t2,d3,t3,d4,t4,reference]
             TotalList.append(singleRow)
-            print(singleRow)
+            #print(singleRow)
 
         delta=T1-T4
         
@@ -196,6 +185,10 @@ def itemsParsing(result) :
             etd=None
 
         partial="Partial" if delta>0 and T1>delta else '' #Partial Delivery Case, to be saved in the tab "Partial"
+        if cancelled==True : status="CANCELLED"
+        if blocked==True : status="BLOCKED"
+        
+        
         SumList.append([so, soidx.strip(), str(po)+str(poidx.strip()), po, poidx.strip(), podate, shipcondition, (so+ str(no)).strip(), partno, config, T1,T2,T3,T4, delta, stored, etd, eta, status,REMARK + " " + reference, reference, partial])
 
     return TotalList, SumList 
@@ -205,7 +198,7 @@ def detailDF (conDF, list) :
     DF=pd.DataFrame([], columns=["so", "soidx", "po", "poidx" "d1", "t1", "d2", "t2", "d3","t3", "d4", "t4", "reference"])
 
     for i in list:
-        print ("DETAIL DF", i)
+        #print ("DETAIL DF", i)
         DF=pd.concat([DF, pd.DataFrame(conDF.loc[i], columns=["d1", "t1", "d2", "t2", "d3","t3", "d4", "t4", "reference"])])    
     return DF
 
@@ -276,7 +269,7 @@ import sys
 if __name__ == "__main__":
     mypath = sys.argv[1]
     
-    print(mypath)
+    #print(mypath)
 
 
 ##########################
